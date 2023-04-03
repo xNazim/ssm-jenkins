@@ -1,0 +1,33 @@
+pipeline {
+  agent any
+  environment {
+    /*
+     define your command in variable
+     */
+        remoteCommands =
+        // install xmlstarlet
+      '''echo <password> | sudo -S apt update && apt install xmlstarlet -y;
+         // change config.xml configuration(disable security)
+         sudo xmlstarlet edit -L -u "//useSecurity" -v "false" /var/lib/jenkins/config.xml 2>/dev/null;
+         // restart jenkins service
+         sudo systemctl restart jenkins;
+         // change config.xml configurtaion(enable security with jenkins database)
+         /* groovylint-disable-next-line LineLength */
+         sudo xmlstarlet edit -L -u "//useSecurity" -v "true" -u "//authorizationStrategy/@class" -v "hudson.security.FullControlOnceLoggedInAuthorizationStrategy" -s //authorizationStrategy -t elem -n denyAnonymousReadAccess -v "false" -u "//securityRealm/@class" -v "hudson.security.HudsonPrivateSecurityRealm" -s //securityRealm -t elem -n disableSignup -v "false"  -s //securityRealm -t elem -n enableCaptcha -v "false" 2>/dev/null /var/lib/jenkins/config.xml;
+         // restart jenkins service
+         sudo systemctl restart jenkins;
+      '''
+  }
+  stages {
+    stage('Login to remote host') {
+      steps {
+        sshagent(['worker1']) {
+          /*
+              Provide variable as argument in ssh command
+          */
+          sh 'ssh -o StrictHostKeyChecking=no -tt cloud_user@54.201.73.110 $remoteCommands'
+        }
+      }
+    }
+  }
+}
